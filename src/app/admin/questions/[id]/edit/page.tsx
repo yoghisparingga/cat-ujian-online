@@ -29,10 +29,12 @@ export default async function EditQuestionPage({
           id: question.id,
           categoryId: question.categoryId,
           text: question.text,
+          imageUrl: question.imageUrl,
           type: question.type,
           explanation: question.explanation,
           options: question.options.map((o) => ({
             text: o.text,
+            imageUrl: o.imageUrl,
             score: o.score,
             isCorrect: o.isCorrect,
             order: o.order,

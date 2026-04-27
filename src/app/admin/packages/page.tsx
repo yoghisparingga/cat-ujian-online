@@ -46,7 +46,10 @@ export default async function PackagesPage() {
               const total = p.packageCategories.reduce((s, pc) => s + pc.questionCount, 0);
               return (
                 <tr key={p.id} className="border-t border-zinc-100">
-                  <td className="px-4 py-2 font-medium">{p.name}</td>
+                  <td className="px-4 py-2">
+                    <div className="font-medium">{p.name}</div>
+                    <div className="text-xs text-zinc-500">{p.code}</div>
+                  </td>
                   <td className="px-4 py-2">{p.durationMinutes} menit</td>
                   <td className="px-4 py-2">
                     <div className="text-xs text-zinc-600">

@@ -9,6 +9,7 @@ const composSchema = z.object({
 });
 
 const updateSchema = z.object({
+  code: z.string().min(1).max(80).optional(),
   name: z.string().min(1).max(160),
   description: z.string().max(1000).optional().nullable(),
   durationMinutes: z.number().int().min(1).max(600),
@@ -31,6 +32,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
       where: { id },
       data: {
         name: data.name,
+        code: data.code || undefined,
         description: data.description ?? null,
         durationMinutes: data.durationMinutes,
         isActive: data.isActive ?? true,

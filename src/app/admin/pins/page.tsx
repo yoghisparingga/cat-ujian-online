@@ -14,7 +14,12 @@ export default async function PinsPage() {
     <main className="p-8 max-w-5xl">
       <h1 className="text-2xl font-bold mb-6">Generate PIN Peserta</h1>
       <PinsClient
-        participants={participants.map((p) => ({ id: p.id, name: p.name, email: p.email }))}
+        participants={participants.map((p) => ({
+          id: p.id,
+          name: p.name,
+          email: p.email,
+          normalizedPhoneNumber: p.normalizedPhoneNumber,
+        }))}
         packages={packages.map((p) => ({ id: p.id, name: p.name }))}
       />
     </main>

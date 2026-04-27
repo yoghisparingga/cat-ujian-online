@@ -7,6 +7,7 @@ type Category = { id: string; name: string; questionCount: number };
 type Composition = { categoryId: string; questionCount: number };
 type Existing = {
   id: string;
+  code: string;
   name: string;
   description: string | null;
   durationMinutes: number;
@@ -22,6 +23,7 @@ export function PackageForm({
   existing?: Existing;
 }) {
   const router = useRouter();
+  const [code, setCode] = useState(existing?.code || "");
   const [name, setName] = useState(existing?.name || "");
   const [description, setDescription] = useState(existing?.description || "");
   const [durationMinutes, setDurationMinutes] = useState(existing?.durationMinutes ?? 60);
@@ -63,6 +65,7 @@ export function PackageForm({
     setSaving(true);
     try {
       const payload = {
+        code: code || undefined,
         name,
         description: description || null,
         durationMinutes,
@@ -101,6 +104,15 @@ export function PackageForm({
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       <div className="grid sm:grid-cols-2 gap-4">
+        <label className="block">
+          <span className="label">Kode Paket</span>
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            className="input"
+            placeholder="PKG-DEMO"
+          />
+        </label>
         <label className="block">
           <span className="label">Nama Paket</span>
           <input

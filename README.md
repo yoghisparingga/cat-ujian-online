@@ -7,7 +7,7 @@ Aplikasi Computer Assisted Test (CAT) Ujian Online &mdash; mirip CAT BKN, dengan
   - **Pilihan ganda** (benar = 5, salah = 0)
   - **Skala Likert** (1&ndash;5 sesuai jawaban)
 - **PIN 4 digit per peserta** &mdash; admin generate PIN unik untuk tiap peserta + paket
-- **Login peserta** cukup dengan email + no telpon (tanpa password)
+- **Login peserta** menggunakan no WhatsApp + OTP (tanpa password)
 - Admin terpisah dengan email + password
 - **Timer persist server-side**: tutup browser, sisa waktu dihitung berdasarkan `startedAt + duration`, tidak bisa dicurangi
 - Soal random per kategori, jawaban disimpan incremental, auto-submit saat waktu habis
@@ -60,7 +60,7 @@ Buka <http://localhost:3000>.
 ### Credential demo
 
 - **Admin:** `admin@example.com` / `admin123` &rarr; <http://localhost:3000/admin/login>
-- **Peserta demo:** email `peserta@example.com`, no telpon `081234567890`
+- **Peserta demo:** no telpon `081234567890`; OTP dev akan tampil jika WhatsApp gateway belum aktif
 - **PIN demo:** `1234` (paket "Try Out CPNS Demo")
 
 ## Alur Penggunaan
@@ -81,8 +81,8 @@ Buka <http://localhost:3000>.
 
 ### Peserta
 
-1. Daftar di `/register` (nama, email, no telpon).
-2. Login di `/login` (email + no telpon).
+1. Daftar di `/register` (nama, email opsional, no telpon) lalu verifikasi OTP WhatsApp.
+2. Login di `/login` (no telpon + OTP WhatsApp).
 3. Di dashboard, pilih paket yang ada PIN-nya, klik **Mulai Ujian**.
 4. Masukkan PIN 4 digit untuk konfirmasi.
 5. Kerjakan soal &mdash; jawaban tersimpan otomatis tiap pilih opsi.
@@ -130,3 +130,38 @@ Jika peserta tutup browser dan reload, server merespons dengan sisa waktu yang a
 | `npm run typecheck` | TypeScript check |
 | `npm run db:seed` | Jalankan seed data |
 | `npm run db:reset` | Reset DB + seed |
+
+## WhatsApp Gateway Custom
+
+Halaman konfigurasi ada di `/admin/settings/whatsapp`.
+
+Format request awal sengaja dibuat fleksibel dan hanya berada di `CustomWhatsAppGatewayProvider`:
+
+```http
+POST {url_endpoint}
+Authorization: Bearer {api_key}
+Content-Type: application/json
+```
+
+```json
+{
+  "sender_id": "{sender_id}",
+  "phone_number": "{normalized_phone_number}",
+  "message": "{message}"
+}
+```
+
+Jika gateway belum aktif/lengkap, pengiriman dicatat sebagai simulated sent agar alur register/login OTP tetap bisa diuji end-to-end di development.
+
+## Google OAuth
+
+Variabel `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET` disiapkan untuk integrasi berikutnya. Pada PR ini flow end-to-end diprioritaskan ke OTP WhatsApp; endpoint status dasar tersedia di `/api/admin/google-oauth/status`.
+
+## Import Soal
+
+Admin dapat membuka `/admin/questions/import` untuk upload DOC/DOCX/XLS/XLSX/PDF, melihat preview, validasi error, lalu menyimpan soal dalam transaction.
+
+Prioritas parser:
+
+- XLS/XLSX: parser utama berbasis header kolom template.
+- DOC/DOCX dan PDF: parser basic berbasis teks mentah. Hasil layout tabel, gambar tertanam, dan dokumen kompleks perlu divalidasi/koreksi di halaman preview sebelum disimpan.

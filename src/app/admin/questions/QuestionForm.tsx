@@ -6,6 +6,7 @@ import { useState } from "react";
 type Category = { id: string; name: string };
 type OptionDraft = {
   text: string;
+  imageUrl?: string | null;
   score: number;
   isCorrect: boolean;
   order: number;
@@ -15,6 +16,7 @@ type Existing = {
   id: string;
   categoryId: string;
   text: string;
+  imageUrl?: string | null;
   type: "MULTIPLE_CHOICE" | "LIKERT";
   explanation: string | null;
   options: OptionDraft[];
@@ -45,6 +47,7 @@ export function QuestionForm({
   const router = useRouter();
   const [categoryId, setCategoryId] = useState(existing?.categoryId || categories[0]?.id || "");
   const [text, setText] = useState(existing?.text || "");
+  const [imageUrl, setImageUrl] = useState(existing?.imageUrl || "");
   const [type, setType] = useState<"MULTIPLE_CHOICE" | "LIKERT">(existing?.type || "MULTIPLE_CHOICE");
   const [explanation, setExplanation] = useState(existing?.explanation || "");
   const [options, setOptions] = useState<OptionDraft[]>(
@@ -107,10 +110,12 @@ export function QuestionForm({
       const payload = {
         categoryId,
         text,
+        imageUrl: imageUrl || null,
         type,
         explanation: explanation || null,
         options: options.map((o, i) => ({
           text: o.text,
+          imageUrl: o.imageUrl || null,
           score: type === "MULTIPLE_CHOICE" ? (o.isCorrect ? 5 : 0) : o.score,
           isCorrect: o.isCorrect,
           order: i,
@@ -181,6 +186,16 @@ export function QuestionForm({
         />
       </label>
 
+      <label className="block">
+        <span className="label">URL Gambar Soal (opsional)</span>
+        <input
+          value={imageUrl}
+          onChange={(e) => setImageUrl(e.target.value)}
+          className="input"
+          placeholder="https://..."
+        />
+      </label>
+
       <div>
         <div className="label">Opsi Jawaban</div>
         <div className="space-y-2">
@@ -216,6 +231,12 @@ export function QuestionForm({
                 placeholder={`Opsi ${String.fromCharCode(65 + i)}`}
                 value={o.text}
                 onChange={(e) => updateOption(i, { text: e.target.value })}
+                className="input"
+              />
+              <input
+                placeholder="URL gambar opsi"
+                value={o.imageUrl || ""}
+                onChange={(e) => updateOption(i, { imageUrl: e.target.value })}
                 className="input"
               />
               <button

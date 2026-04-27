@@ -18,9 +18,14 @@ export default async function QuestionsPage() {
     <main className="p-8 max-w-5xl">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Bank Soal</h1>
-        <Link href="/admin/questions/new" className="btn-primary">
-          + Tambah Soal
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/admin/questions/import" className="btn-secondary">
+            Import Soal
+          </Link>
+          <Link href="/admin/questions/new" className="btn-primary">
+            + Tambah Soal
+          </Link>
+        </div>
       </div>
       {categories.length === 0 && (
         <div className="card p-4 text-sm text-amber-700 bg-amber-50 border-amber-200 mb-4">

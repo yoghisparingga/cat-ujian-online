@@ -1,5 +1,6 @@
 import { PrismaClient, QuestionType } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { normalizeIndonesianPhoneNumber } from "../src/lib/phone";
 
 const prisma = new PrismaClient();
 
@@ -209,6 +210,7 @@ async function main() {
   const pkg = await prisma.package.create({
     data: {
       name: pkgName,
+      code: "PKG-DEMO",
       description: "Demo paket: 3 TWK + 3 TIU + 3 TKP, durasi 30 menit",
       durationMinutes: 30,
       isActive: true,
@@ -224,12 +226,17 @@ async function main() {
 
   // Demo participant
   const peserta = await prisma.participant.upsert({
-    where: { email: "peserta@example.com" },
-    update: {},
+    where: { normalizedPhoneNumber: normalizeIndonesianPhoneNumber("081234567890") },
+    update: {
+      email: "peserta@example.com",
+      phoneVerified: true,
+    },
     create: {
       name: "Peserta Demo",
       email: "peserta@example.com",
       phone: "081234567890",
+      normalizedPhoneNumber: normalizeIndonesianPhoneNumber("081234567890"),
+      phoneVerified: true,
     },
   });
 

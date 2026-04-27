@@ -34,6 +34,7 @@ export default async function EditPackagePage({
         }))}
         existing={{
           id: pkg.id,
+          code: pkg.code,
           name: pkg.name,
           description: pkg.description,
           durationMinutes: pkg.durationMinutes,

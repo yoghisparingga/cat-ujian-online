@@ -2,7 +2,7 @@ import { prisma } from "./db";
 import type { ExamSession } from "@prisma/client";
 
 export function computeRemainingSeconds(session: ExamSession): number {
-  const endMs = session.startedAt.getTime() + session.durationMinutes * 60_000;
+  const endMs = session.expiresAt?.getTime() ?? session.startedAt.getTime() + session.durationMinutes * 60_000;
   const remaining = Math.floor((endMs - Date.now()) / 1000);
   return Math.max(0, remaining);
 }
