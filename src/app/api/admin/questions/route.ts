@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 
 const optionSchema = z.object({
   text: z.string().min(1).max(500),
+  imageUrl: z.string().max(1000).optional().nullable(),
   score: z.number().int().min(0).max(5),
   isCorrect: z.boolean().optional().default(false),
   order: z.number().int().min(0).max(50).optional().default(0),
@@ -13,6 +14,7 @@ const optionSchema = z.object({
 const createSchema = z.object({
   categoryId: z.string().min(1),
   text: z.string().min(1).max(2000),
+  imageUrl: z.string().max(1000).optional().nullable(),
   type: z.enum(["MULTIPLE_CHOICE", "LIKERT"]),
   explanation: z.string().max(2000).optional().nullable(),
   options: z.array(optionSchema).min(2).max(10),
@@ -54,11 +56,13 @@ export async function POST(req: NextRequest) {
     data: {
       categoryId: data.categoryId,
       text: data.text,
+      imageUrl: data.imageUrl ?? null,
       type: data.type,
       explanation: data.explanation ?? null,
       options: {
         create: data.options.map((o, i) => ({
           text: o.text,
+          imageUrl: o.imageUrl ?? null,
           score: data.type === "MULTIPLE_CHOICE" ? (o.isCorrect ? 5 : 0) : o.score,
           isCorrect: o.isCorrect ?? false,
           order: o.order ?? i,

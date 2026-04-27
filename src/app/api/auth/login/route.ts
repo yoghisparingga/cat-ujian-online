@@ -1,11 +1,13 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { setParticipantSession } from "@/lib/session";
+import { requestOtp } from "@/lib/otp";
+import { isValidIndonesianPhoneNumber, normalizeIndonesianPhoneNumber } from "@/lib/phone";
 
 const schema = z.object({
-  email: z.string().email(),
-  phone: z.string().min(6).max(40),
+  phone: z.string().min(8).max(30).refine(isValidIndonesianPhoneNumber, {
+    message: "Nomor WhatsApp Indonesia tidak valid",
+  }),
 });
 
 export async function POST(req: NextRequest) {
@@ -14,13 +16,18 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return Response.json({ error: "Invalid input" }, { status: 400 });
   }
-  const { email, phone } = parsed.data;
+  const normalizedPhone = normalizeIndonesianPhoneNumber(parsed.data.phone);
   const participant = await prisma.participant.findUnique({
-    where: { email: email.toLowerCase() },
+    where: { normalizedPhoneNumber: normalizedPhone },
   });
-  if (!participant || participant.phone !== phone) {
-    return Response.json({ error: "Email atau no telpon salah" }, { status: 401 });
+  if (!participant) {
+    return Response.json({ error: "Nomor WhatsApp belum terdaftar" }, { status: 401 });
   }
-  await setParticipantSession(participant.id);
-  return Response.json({ ok: true });
+  const otp = await requestOtp({
+    phoneNumber: normalizedPhone,
+    purpose: "LOGIN",
+    participantId: participant.id,
+  });
+  if (!otp.ok) return Response.json({ error: otp.error }, { status: otp.status });
+  return Response.json({ ok: true, requiresOtp: true, phone: normalizedPhone, debugCode: otp.debugCode });
 }

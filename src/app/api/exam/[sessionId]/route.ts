@@ -44,6 +44,10 @@ async function buildResponse(session: SessionWithIncludes) {
   const orderedQuestions = order.map((id) => byId.get(id)).filter((q): q is NonNullable<typeof q> => Boolean(q));
 
   const answersByQuestion = new Map(session.answers.map((a) => [a.questionId, a.optionId]));
+  await prisma.examSession.update({
+    where: { id: session.id },
+    data: { lastSeenAt: new Date() },
+  });
 
   return Response.json({
     session: {
@@ -57,11 +61,13 @@ async function buildResponse(session: SessionWithIncludes) {
     questions: orderedQuestions.map((q) => ({
       id: q.id,
       text: q.text,
+      imageUrl: q.imageUrl,
       type: q.type,
       category: { id: q.category.id, name: q.category.name },
       options: q.options.map((o) => ({
         id: o.id,
         text: o.text,
+        imageUrl: o.imageUrl,
         order: o.order,
         // Hide score/isCorrect from participant during exam
       })),

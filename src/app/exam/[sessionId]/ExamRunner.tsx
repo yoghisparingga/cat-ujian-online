@@ -3,10 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type Option = { id: string; text: string; order: number };
+type Option = { id: string; text: string; imageUrl?: string | null; order: number };
 type Question = {
   id: string;
   text: string;
+  imageUrl?: string | null;
   type: "MULTIPLE_CHOICE" | "LIKERT";
   category: { id: string; name: string };
   options: Option[];
@@ -71,6 +72,40 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
     }, 30000);
     return () => clearInterval(id);
   }, [data, load]);
+
+  useEffect(() => {
+    if (!data || data.session.status !== "IN_PROGRESS") return;
+    function logActivity(eventType: string) {
+      navigator.sendBeacon?.(
+        `/api/exam/${sessionId}/activity`,
+        new Blob([JSON.stringify({ eventType })], { type: "application/json" })
+      );
+    }
+    const onBlur = () => logActivity("TAB_BLUR");
+    const onFocus = () => logActivity("TAB_FOCUS");
+    const onBeforeUnload = () => logActivity("WINDOW_CLOSE");
+    const onVisibility = () =>
+      logActivity(document.hidden ? "VISIBILITY_HIDDEN" : "VISIBILITY_VISIBLE");
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("visibilitychange", onVisibility);
+    const heartbeat = setInterval(() => {
+      fetch(`/api/exam/${sessionId}/activity`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventType: "HEARTBEAT" }),
+        keepalive: true,
+      }).catch(() => undefined);
+    }, 30000);
+    return () => {
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onVisibility);
+      clearInterval(heartbeat);
+    };
+  }, [data, sessionId]);
 
   // Auto-submit when timer hits 0
   useEffect(() => {
@@ -179,6 +214,9 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
               <div className="text-base sm:text-lg font-medium whitespace-pre-wrap">
                 {current.text}
               </div>
+              {current.imageUrl && (
+                <img src={current.imageUrl} alt="" className="mt-4 max-h-80 rounded-lg border border-zinc-200 object-contain" />
+              )}
             </div>
 
             <div className="space-y-2">
@@ -203,7 +241,12 @@ export function ExamRunner({ sessionId }: { sessionId: string }) {
                     >
                       {String.fromCharCode(65 + i)}
                     </span>
-                    <span className="text-sm">{o.text}</span>
+                    <span className="text-sm">
+                      {o.text}
+                      {o.imageUrl && (
+                        <img src={o.imageUrl} alt="" className="mt-2 max-h-40 rounded border border-zinc-200 object-contain" />
+                      )}
+                    </span>
                   </button>
                 );
               })}

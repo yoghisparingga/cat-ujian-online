@@ -28,6 +28,13 @@ export async function POST(req: NextRequest) {
   if (!pinRow.package.isActive) {
     return Response.json({ error: "Paket sudah tidak aktif" }, { status: 400 });
   }
+  const activeSession = await prisma.examSession.findFirst({
+    where: { participantId: participant.id, packageId, status: "IN_PROGRESS" },
+    select: { id: true },
+  });
+  if (activeSession) {
+    return Response.json({ sessionId: activeSession.id, resumed: true });
+  }
 
   // If a session already exists for this PIN, return it (resume)
   if (pinRow.session) {
@@ -53,16 +60,21 @@ export async function POST(req: NextRequest) {
   }
   const order = shuffle(allQuestionIds);
 
-  const session = await prisma.examSession.create({
-    data: {
-      participantId: participant.id,
-      packageId,
-      pinId: pinRow.id,
-      durationMinutes: pinRow.package.durationMinutes,
-      questionOrder: order,
-    },
+  const session = await prisma.$transaction(async (tx) => {
+    const created = await tx.examSession.create({
+      data: {
+        participantId: participant.id,
+        packageId,
+        pinId: pinRow.id,
+        durationMinutes: pinRow.package.durationMinutes,
+        expiresAt: new Date(Date.now() + pinRow.package.durationMinutes * 60_000),
+        questionOrder: order,
+        currentQuestionId: order[0] || null,
+      },
+    });
+    await tx.participantPin.update({ where: { id: pinRow.id }, data: { used: true } });
+    return created;
   });
-  await prisma.participantPin.update({ where: { id: pinRow.id }, data: { used: true } });
 
   return Response.json({ sessionId: session.id, resumed: false });
 }

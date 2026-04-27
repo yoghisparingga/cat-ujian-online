@@ -22,7 +22,12 @@ export async function GET() {
     }
     return {
       id: s.id,
-      participant: { id: s.participant.id, name: s.participant.name, email: s.participant.email },
+      participant: {
+        id: s.participant.id,
+        name: s.participant.name,
+        email: s.participant.email,
+        normalizedPhoneNumber: s.participant.normalizedPhoneNumber,
+      },
       packageName: s.package.name,
       status: s.status,
       startedAt: s.startedAt,

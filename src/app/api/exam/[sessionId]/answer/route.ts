@@ -7,6 +7,7 @@ import { isExpired, finalizeSession } from "@/lib/exam";
 const schema = z.object({
   questionId: z.string().min(1),
   optionId: z.string().min(1),
+  isMarkedDoubt: z.boolean().optional().default(false),
 });
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ sessionId: string }> }) {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ sessionId:
   if (!parsed.success) {
     return Response.json({ error: "Invalid input" }, { status: 400 });
   }
-  const { questionId, optionId } = parsed.data;
+  const { questionId, optionId, isMarkedDoubt } = parsed.data;
 
   const session = await prisma.examSession.findUnique({ where: { id: sessionId } });
   if (!session || session.participantId !== participant.id) {
@@ -41,11 +42,24 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ sessionId:
     return Response.json({ error: "Opsi tidak valid" }, { status: 400 });
   }
 
-  await prisma.answer.upsert({
-    where: { sessionId_questionId: { sessionId, questionId } },
-    create: { sessionId, questionId, optionId, score: option.score },
-    update: { optionId, score: option.score },
-  });
+  await prisma.$transaction([
+    prisma.answer.upsert({
+      where: { sessionId_questionId: { sessionId, questionId } },
+      create: { sessionId, questionId, optionId, score: option.score, isMarkedDoubt },
+      update: { optionId, score: option.score, isMarkedDoubt, answeredAt: new Date() },
+    }),
+    prisma.examSession.update({
+      where: { id: sessionId },
+      data: { currentQuestionId: questionId, lastSeenAt: new Date() },
+    }),
+    prisma.attemptActivityLog.create({
+      data: {
+        sessionId,
+        eventType: "ANSWER_SAVED",
+        metadata: { questionId, optionId },
+      },
+    }),
+  ]);
 
   return Response.json({ ok: true });
 }

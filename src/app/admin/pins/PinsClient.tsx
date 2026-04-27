@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-type Participant = { id: string; name: string; email: string };
+type Participant = { id: string; name: string; email: string | null; normalizedPhoneNumber: string };
 type Pkg = { id: string; name: string };
 type PinRow = {
   id: string;
   pin: string;
   used: boolean;
   createdAt: string;
-  participant: { id: string; name: string; email: string };
+  participant: { id: string; name: string; email: string | null; normalizedPhoneNumber: string };
   package: { id: string; name: string };
   session: { id: string; status: string; totalScore: number } | null;
 };
@@ -87,7 +87,7 @@ export function PinsClient({
             >
               {participants.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} — {p.email}
+                  {p.name} — {p.email || p.normalizedPhoneNumber}
                 </option>
               ))}
             </select>
@@ -140,7 +140,7 @@ export function PinsClient({
                 <td className="px-4 py-2 font-mono font-bold">{p.pin}</td>
                 <td className="px-4 py-2">
                   <div className="font-medium">{p.participant.name}</div>
-                  <div className="text-xs text-zinc-500">{p.participant.email}</div>
+                  <div className="text-xs text-zinc-500">{p.participant.email || p.participant.normalizedPhoneNumber}</div>
                 </td>
                 <td className="px-4 py-2">{p.package.name}</td>
                 <td className="px-4 py-2">

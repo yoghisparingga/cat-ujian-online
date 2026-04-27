@@ -1,12 +1,15 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { setParticipantSession } from "@/lib/session";
+import { requestOtp } from "@/lib/otp";
+import { isValidIndonesianPhoneNumber, normalizeIndonesianPhoneNumber } from "@/lib/phone";
 
 const schema = z.object({
   name: z.string().min(2).max(120),
-  email: z.string().email().max(160),
-  phone: z.string().min(6).max(40),
+  email: z.string().email().max(160).optional().or(z.literal("")),
+  phone: z.string().min(8).max(30).refine(isValidIndonesianPhoneNumber, {
+    message: "Nomor WhatsApp Indonesia tidak valid",
+  }),
 });
 
 export async function POST(req: NextRequest) {
@@ -15,16 +18,40 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return Response.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
   }
-  const { name, email, phone } = parsed.data;
+  const { name } = parsed.data;
+  const rawPhone = parsed.data.phone.trim();
+  const normalizedPhone = normalizeIndonesianPhoneNumber(rawPhone);
+  const email = parsed.data.email ? parsed.data.email.toLowerCase() : null;
 
-  const existing = await prisma.participant.findUnique({ where: { email } });
-  if (existing) {
+  const [existingEmail, existingPhone] = await Promise.all([
+    email ? prisma.participant.findUnique({ where: { email } }) : null,
+    prisma.participant.findUnique({ where: { normalizedPhoneNumber: normalizedPhone } }),
+  ]);
+  if (existingEmail) {
     return Response.json({ error: "Email sudah terdaftar" }, { status: 409 });
+  }
+  if (existingPhone) {
+    return Response.json({ error: "Nomor WhatsApp sudah terdaftar" }, { status: 409 });
   }
 
   const participant = await prisma.participant.create({
-    data: { name, email: email.toLowerCase(), phone },
+    data: { name, email, phone: rawPhone, normalizedPhoneNumber: normalizedPhone, phoneVerified: false },
   });
-  await setParticipantSession(participant.id);
-  return Response.json({ ok: true, participant: { id: participant.id, name: participant.name } });
+  const otp = await requestOtp({
+    phoneNumber: normalizedPhone,
+    purpose: "REGISTER",
+    participantId: participant.id,
+  });
+  if (!otp.ok) {
+    await prisma.participant.delete({ where: { id: participant.id } }).catch(() => undefined);
+    return Response.json({ error: otp.error }, { status: otp.status });
+  }
+
+  return Response.json({
+    ok: true,
+    requiresOtp: true,
+    phone: normalizedPhone,
+    debugCode: otp.debugCode,
+    participant: { id: participant.id, name: participant.name },
+  });
 }

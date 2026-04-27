@@ -22,9 +22,12 @@ export default async function AdminLayout({
         <NavLink href="/admin">Dashboard</NavLink>
         <NavLink href="/admin/categories">Kategori</NavLink>
         <NavLink href="/admin/questions">Soal</NavLink>
+        <NavLink href="/admin/questions/import">Import Soal</NavLink>
         <NavLink href="/admin/packages">Paket</NavLink>
         <NavLink href="/admin/pins">PIN Peserta</NavLink>
+        <NavLink href="/admin/monitoring">Monitoring</NavLink>
         <NavLink href="/admin/results">Hasil Ujian</NavLink>
+        <NavLink href="/admin/settings/whatsapp">WhatsApp</NavLink>
         <div className="pt-3">
           <AdminLogoutButton />
         </div>

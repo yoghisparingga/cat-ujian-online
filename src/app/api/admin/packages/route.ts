@@ -9,6 +9,7 @@ const composSchema = z.object({
 });
 
 const createSchema = z.object({
+  code: z.string().min(1).max(80).optional(),
   name: z.string().min(1).max(160),
   description: z.string().max(1000).optional().nullable(),
   durationMinutes: z.number().int().min(1).max(600),
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
   const pkg = await prisma.package.create({
     data: {
       name: data.name,
+      code: data.code || `PKG-${Date.now()}`,
       description: data.description ?? null,
       durationMinutes: data.durationMinutes,
       isActive: data.isActive ?? true,

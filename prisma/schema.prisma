@@ -11,14 +11,19 @@ datasource db {
 }
 
 model Participant {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  phone     String
-  createdAt DateTime @default(now())
+  id                    String   @id @default(cuid())
+  name                  String
+  email                 String?  @unique
+  phone                 String
+  normalizedPhoneNumber String   @unique
+  phoneVerified         Boolean  @default(false)
+  googleId              String?  @unique
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   pins     ParticipantPin[]
   sessions ExamSession[]
+  otpCodes OtpCode[]
 }
 
 model AdminUser {
@@ -27,6 +32,8 @@ model AdminUser {
   passwordHash String
   name         String
   createdAt    DateTime @default(now())
+
+  importSessions ImportSession[]
 }
 
 model Category {
@@ -48,6 +55,7 @@ model Question {
   id          String       @id @default(cuid())
   categoryId  String
   text        String
+  imageUrl    String?
   type        QuestionType
   explanation String?
   createdAt   DateTime     @default(now())
@@ -55,6 +63,7 @@ model Question {
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   options  Option[]
   answers  Answer[]
+  importedQuestions ImportedQuestion[]
 
   @@index([categoryId])
 }
@@ -63,6 +72,7 @@ model Option {
   id         String  @id @default(cuid())
   questionId String
   text       String
+  imageUrl   String?
   // For MULTIPLE_CHOICE: score = 5 if isCorrect else 0
   // For LIKERT: score in 1..5 (admin assigns per option)
   score      Int     @default(0)
@@ -77,6 +87,7 @@ model Option {
 
 model Package {
   id              String   @id @default(cuid())
+  code            String   @unique
   name            String
   description     String?
   durationMinutes Int      @default(60)
@@ -116,6 +127,105 @@ model ParticipantPin {
   @@index([participantId])
 }
 
+enum OtpPurpose {
+  REGISTER
+  LOGIN
+  VERIFY_PHONE
+  LINK_PHONE
+}
+
+model OtpCode {
+  id                    String     @id @default(cuid())
+  participantId         String?
+  phoneNumber           String
+  normalizedPhoneNumber String
+  codeHash              String
+  purpose               OtpPurpose
+  attempts              Int        @default(0)
+  expiresAt             DateTime
+  consumedAt            DateTime?
+  invalidatedAt         DateTime?
+  createdAt             DateTime   @default(now())
+
+  participant Participant? @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([normalizedPhoneNumber, purpose, createdAt])
+  @@index([participantId])
+}
+
+enum ImportSessionStatus {
+  PREVIEW
+  COMPLETED
+  FAILED
+}
+
+model ImportSession {
+  id             String              @id @default(cuid())
+  adminId        String
+  examCode       String?
+  status         ImportSessionStatus @default(PREVIEW)
+  fileName       String
+  totalRows      Int                 @default(0)
+  successfulRows Int                 @default(0)
+  errorRows      Int                 @default(0)
+  previewData    Json?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  importedQuestions ImportedQuestion[]
+
+  @@index([adminId, createdAt])
+}
+
+model ImportedQuestion {
+  id              String   @id @default(cuid())
+  importSessionId String
+  questionId      String
+  rowNumber       Int
+  createdAt       DateTime @default(now())
+
+  importSession ImportSession @relation(fields: [importSessionId], references: [id], onDelete: Cascade)
+  question      Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([importSessionId])
+  @@index([questionId])
+}
+
+model WhatsAppSetting {
+  id                       String   @id @default(cuid())
+  senderId                 String?
+  apiKeyEncrypted          String?
+  urlEndpoint              String?
+  isActive                 Boolean  @default(false)
+  loginOtpTemplate         String   @default("Kode OTP login CAT Anda adalah {{code}}. Berlaku selama {{minutes}} menit. Jangan berikan kode ini kepada siapa pun.")
+  registrationOtpTemplate  String   @default("Kode OTP registrasi CAT Anda adalah {{code}}. Berlaku selama {{minutes}} menit. Jangan berikan kode ini kepada siapa pun.")
+  verifyPhoneOtpTemplate   String   @default("Kode verifikasi nomor WhatsApp Anda adalah {{code}}. Berlaku selama {{minutes}} menit. Jangan berikan kode ini kepada siapa pun.")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+enum WhatsAppMessageStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model WhatsAppMessageLog {
+  id                    String                @id @default(cuid())
+  providerName          String
+  phoneNumber           String
+  normalizedPhoneNumber String
+  messageType           String
+  payload               Json
+  response              Json?
+  status                WhatsAppMessageStatus @default(PENDING)
+  errorMessage          String?
+  createdAt             DateTime              @default(now())
+
+  @@index([normalizedPhoneNumber, createdAt])
+}
+
 enum SessionStatus {
   IN_PROGRESS
   SUBMITTED
@@ -129,17 +239,22 @@ model ExamSession {
   pinId           String        @unique
   startedAt       DateTime      @default(now())
   durationMinutes Int
+  expiresAt       DateTime?
   submittedAt     DateTime?
   status          SessionStatus @default(IN_PROGRESS)
   questionOrder   Json
+  currentQuestionId String?
+  lastSeenAt      DateTime      @default(now())
   totalScore      Int           @default(0)
 
   participant Participant    @relation(fields: [participantId], references: [id], onDelete: Cascade)
   package     Package        @relation(fields: [packageId], references: [id], onDelete: Cascade)
   pin         ParticipantPin @relation(fields: [pinId], references: [id], onDelete: Cascade)
   answers     Answer[]
+  activityLogs AttemptActivityLog[]
 
   @@index([participantId])
+  @@index([status])
 }
 
 model Answer {
@@ -148,6 +263,7 @@ model Answer {
   questionId String
   optionId   String?
   score      Int      @default(0)
+  isMarkedDoubt Boolean @default(false)
   answeredAt DateTime @default(now())
 
   session  ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -155,4 +271,27 @@ model Answer {
   option   Option?     @relation(fields: [optionId], references: [id], onDelete: SetNull)
 
   @@unique([sessionId, questionId])
+}
+
+enum AttemptActivityEventType {
+  TAB_BLUR
+  TAB_FOCUS
+  WINDOW_CLOSE
+  VISIBILITY_HIDDEN
+  VISIBILITY_VISIBLE
+  HEARTBEAT
+  ANSWER_SAVED
+  SUBMIT
+}
+
+model AttemptActivityLog {
+  id        String                   @id @default(cuid())
+  sessionId String
+  eventType AttemptActivityEventType
+  metadata  Json?
+  createdAt DateTime                 @default(now())
+
+  session ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
 }

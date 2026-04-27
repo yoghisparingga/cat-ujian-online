@@ -11,5 +11,8 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ sessionId
     return Response.json({ error: "Session tidak ditemukan" }, { status: 404 });
   }
   const finalized = await finalizeSession(sessionId);
+  await prisma.attemptActivityLog.create({
+    data: { sessionId, eventType: "SUBMIT", metadata: { status: finalized?.status } },
+  });
   return Response.json({ ok: true, status: finalized?.status, totalScore: finalized?.totalScore });
 }

@@ -7,6 +7,11 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const participant = await requireParticipant();
+  const activeSession = await prisma.examSession.findFirst({
+    where: { participantId: participant.id, status: "IN_PROGRESS" },
+    include: { package: true },
+    orderBy: { startedAt: "desc" },
+  });
   const pins = await prisma.participantPin.findMany({
     where: { participantId: participant.id },
     include: {
@@ -27,7 +32,7 @@ export default async function DashboardPage() {
           <div>
             <h1 className="font-semibold text-lg">CAT Ujian Online</h1>
             <p className="text-xs text-zinc-500">
-              Halo, {participant.name} ({participant.email})
+              Halo, {participant.name} ({participant.email || participant.normalizedPhoneNumber})
             </p>
           </div>
           <LogoutButton />
@@ -35,6 +40,17 @@ export default async function DashboardPage() {
       </header>
       <main className="flex-1">
         <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+          {activeSession && (
+            <div className="card p-5 border-blue-200 bg-blue-50">
+              <div className="font-semibold text-blue-950">Ujian sedang berjalan</div>
+              <p className="text-sm text-blue-800 mt-1">
+                Sistem recovery menemukan sesi aktif paket {activeSession.package.name}.
+              </p>
+              <Link href={`/exam/${activeSession.id}`} className="btn-primary mt-3">
+                Lanjutkan Sekarang
+              </Link>
+            </div>
+          )}
           <div>
             <h2 className="text-xl font-bold mb-1">Paket Try Out</h2>
             <p className="text-sm text-zinc-600">
