@@ -1,6 +1,7 @@
 import { OtpPurpose, WhatsAppMessageStatus } from "@prisma/client";
 import { prisma } from "./db";
 import { normalizeIndonesianPhoneNumber } from "./phone";
+import { decryptSecret } from "./secret-crypto";
 
 export type SendMessageResult = {
   ok: boolean;
@@ -32,7 +33,7 @@ export class CustomWhatsAppGatewayProvider implements WhatsAppProvider {
     const normalizedPhoneNumber = normalizeIndonesianPhoneNumber(phoneNumber);
     const setting = await getWhatsAppSetting();
     const senderId = setting.senderId || process.env.WHATSAPP_SENDER_ID || "";
-    const apiKey = setting.apiKeyEncrypted || process.env.WHATSAPP_API_KEY || "";
+    const apiKey = decryptSecret(setting.apiKeyEncrypted) || process.env.WHATSAPP_API_KEY || "";
     const urlEndpoint = setting.urlEndpoint || process.env.WHATSAPP_URL_ENDPOINT || "";
     const payload = {
       sender_id: senderId,

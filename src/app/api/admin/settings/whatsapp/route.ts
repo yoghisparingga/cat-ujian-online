@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getWhatsAppSetting } from "@/lib/whatsapp";
+import { encryptSecret } from "@/lib/secret-crypto";
 
 const schema = z.object({
   senderId: z.string().max(160).optional(),
@@ -43,7 +44,8 @@ export async function PUT(req: NextRequest) {
     where: { id: current.id },
     data: {
       senderId: data.senderId || null,
-      apiKeyEncrypted: data.apiKey && data.apiKey !== "********" ? data.apiKey : current.apiKeyEncrypted,
+      apiKeyEncrypted:
+        data.apiKey && data.apiKey !== "********" ? encryptSecret(data.apiKey) : current.apiKeyEncrypted,
       urlEndpoint: data.urlEndpoint || null,
       isActive: data.isActive,
       loginOtpTemplate: data.loginOtpTemplate,

@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requestOtp } from "@/lib/otp";
-import { indonesianPhoneSchema } from "@/lib/phone";
+import { normalizeIndonesianPhoneNumber } from "@/lib/phone";
 
 const schema = z.object({
   name: z.string().min(2).max(120),
   email: z.string().email().max(160).optional().or(z.literal("")),
-  phone: indonesianPhoneSchema,
+  phone: z.string().min(8).max(30),
 });
 
 export async function POST(req: NextRequest) {
@@ -16,12 +16,14 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return Response.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
   }
-  const { name, phone } = parsed.data;
+  const { name } = parsed.data;
+  const rawPhone = parsed.data.phone.trim();
+  const normalizedPhone = normalizeIndonesianPhoneNumber(rawPhone);
   const email = parsed.data.email ? parsed.data.email.toLowerCase() : null;
 
   const [existingEmail, existingPhone] = await Promise.all([
     email ? prisma.participant.findUnique({ where: { email } }) : null,
-    prisma.participant.findUnique({ where: { normalizedPhoneNumber: phone } }),
+    prisma.participant.findUnique({ where: { normalizedPhoneNumber: normalizedPhone } }),
   ]);
   if (existingEmail) {
     return Response.json({ error: "Email sudah terdaftar" }, { status: 409 });
@@ -31,10 +33,10 @@ export async function POST(req: NextRequest) {
   }
 
   const participant = await prisma.participant.create({
-    data: { name, email, phone, normalizedPhoneNumber: phone, phoneVerified: false },
+    data: { name, email, phone: rawPhone, normalizedPhoneNumber: normalizedPhone, phoneVerified: false },
   });
   const otp = await requestOtp({
-    phoneNumber: phone,
+    phoneNumber: normalizedPhone,
     purpose: "REGISTER",
     participantId: participant.id,
   });
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
   return Response.json({
     ok: true,
     requiresOtp: true,
-    phone,
+    phone: normalizedPhone,
     debugCode: otp.debugCode,
     participant: { id: participant.id, name: participant.name },
   });
