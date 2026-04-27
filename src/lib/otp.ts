@@ -93,6 +93,22 @@ export async function requestOtp({
   ]);
 
   const sendResult = await whatsAppService.sendOtp(normalizedPhoneNumber, code, purpose);
+  if (!sendResult.ok) {
+    await prisma.otpCode.updateMany({
+      where: {
+        normalizedPhoneNumber,
+        purpose,
+        consumedAt: null,
+        invalidatedAt: null,
+      },
+      data: { invalidatedAt: new Date() },
+    });
+    return {
+      ok: false as const,
+      error: sendResult.errorMessage || "Gagal mengirim OTP WhatsApp",
+      status: 502,
+    };
+  }
 
   return {
     ok: true as const,

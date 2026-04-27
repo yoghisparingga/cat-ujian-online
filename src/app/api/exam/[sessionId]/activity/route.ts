@@ -27,6 +27,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ sessionId:
   if (!session || session.participantId !== participant.id) {
     return Response.json({ error: "Session tidak ditemukan" }, { status: 404 });
   }
+  if (session.status !== "IN_PROGRESS") {
+    return Response.json({ ok: true, skipped: true });
+  }
 
   await prisma.$transaction([
     prisma.attemptActivityLog.create({
