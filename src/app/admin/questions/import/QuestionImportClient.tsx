@@ -49,7 +49,7 @@ export function QuestionImportClient() {
   }
 
   function updateRow(index: number, patch: Partial<ImportQuestionDraft>) {
-    setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+    setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch, errors: [] } : row)));
   }
 
   function updateOption(rowIndex: number, optionIndex: number, patch: Partial<ImportOptionDraft>) {
@@ -58,6 +58,7 @@ export function QuestionImportClient() {
         i === rowIndex
           ? {
               ...row,
+              errors: [],
               options: row.options.map((option, oi) =>
                 oi === optionIndex ? { ...option, ...patch } : option
               ),

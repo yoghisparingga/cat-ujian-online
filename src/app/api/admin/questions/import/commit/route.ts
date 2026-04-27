@@ -38,58 +38,63 @@ export async function POST(req: NextRequest) {
   const invalid = rows.find((row) => row.errors?.length);
   if (invalid) return Response.json({ error: "Masih ada baris dengan error validasi" }, { status: 400 });
 
-  const created = await prisma.$transaction(async (tx) => {
-    let count = 0;
-    for (const [rowIndex, row] of rows.entries()) {
-      if (row.questionType === "MULTIPLE_CHOICE" && !row.options.some((option) => option.isCorrect)) {
-        throw new Error(`Soal "${row.questionText.slice(0, 40)}" tidak punya jawaban benar`);
-      }
-      const category = await tx.category.findUnique({
-        where: { name: row.categoryName },
-      });
-      if (!category) throw new Error(`Kategori "${row.categoryName}" tidak ditemukan`);
-      const question = await tx.question.create({
-        data: {
-          categoryId: category.id,
-          text: row.questionText,
-          imageUrl: row.questionImageUrl || null,
-          type: row.questionType as QuestionType,
-          explanation: row.explanation || null,
-          options: {
-            create: row.options.map((option, index) => ({
-              text: option.text,
-              imageUrl: option.imageUrl || null,
-              score: row.questionType === "MULTIPLE_CHOICE" ? (option.isCorrect ? 5 : 0) : option.score,
-              isCorrect: option.isCorrect,
-              order: index,
-            })),
-          },
-        },
-      });
-      if (importSessionId) {
-        await tx.importedQuestion.create({
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      let count = 0;
+      for (const [rowIndex, row] of rows.entries()) {
+        if (row.questionType === "MULTIPLE_CHOICE" && !row.options.some((option) => option.isCorrect)) {
+          throw new Error(`Soal "${row.questionText.slice(0, 40)}" tidak punya jawaban benar`);
+        }
+        const category = await tx.category.findUnique({
+          where: { name: row.categoryName },
+        });
+        if (!category) throw new Error(`Kategori "${row.categoryName}" tidak ditemukan`);
+        const question = await tx.question.create({
           data: {
-            importSessionId,
-            questionId: question.id,
-            rowNumber: rowIndex + 1,
+            categoryId: category.id,
+            text: row.questionText,
+            imageUrl: row.questionImageUrl || null,
+            type: row.questionType as QuestionType,
+            explanation: row.explanation || null,
+            options: {
+              create: row.options.map((option, index) => ({
+                text: option.text,
+                imageUrl: option.imageUrl || null,
+                score: row.questionType === "MULTIPLE_CHOICE" ? (option.isCorrect ? 5 : 0) : option.score,
+                isCorrect: option.isCorrect,
+                order: index,
+              })),
+            },
+          },
+        });
+        if (importSessionId) {
+          await tx.importedQuestion.create({
+            data: {
+              importSessionId,
+              questionId: question.id,
+              rowNumber: rowIndex + 1,
+            },
+          });
+        }
+        count += 1;
+      }
+      if (importSessionId) {
+        await tx.importSession.update({
+          where: { id: importSessionId },
+          data: {
+            status: "COMPLETED",
+            successfulRows: count,
+            errorRows: 0,
+            previewData: JSON.parse(JSON.stringify(rows)) as Prisma.InputJsonValue,
           },
         });
       }
-      count += 1;
-    }
-    if (importSessionId) {
-      await tx.importSession.update({
-        where: { id: importSessionId },
-        data: {
-          status: "COMPLETED",
-          successfulRows: count,
-          errorRows: 0,
-          previewData: JSON.parse(JSON.stringify(rows)) as Prisma.InputJsonValue,
-        },
-      });
-    }
-    return count;
-  });
+      return count;
+    });
 
-  return Response.json({ ok: true, created });
+    return Response.json({ ok: true, created });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Gagal menyimpan import";
+    return Response.json({ error: message }, { status: 400 });
+  }
 }
