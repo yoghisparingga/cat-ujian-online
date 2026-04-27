@@ -1,0 +1,158 @@
+// CAT Ujian Online - Prisma Schema
+// Run: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Participant {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String
+  createdAt DateTime @default(now())
+
+  pins     ParticipantPin[]
+  sessions ExamSession[]
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  questions         Question[]
+  packageCategories PackageCategory[]
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  LIKERT
+}
+
+model Question {
+  id          String       @id @default(cuid())
+  categoryId  String
+  text        String
+  type        QuestionType
+  explanation String?
+  createdAt   DateTime     @default(now())
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  options  Option[]
+  answers  Answer[]
+
+  @@index([categoryId])
+}
+
+model Option {
+  id         String  @id @default(cuid())
+  questionId String
+  text       String
+  // For MULTIPLE_CHOICE: score = 5 if isCorrect else 0
+  // For LIKERT: score in 1..5 (admin assigns per option)
+  score      Int     @default(0)
+  isCorrect  Boolean @default(false)
+  order      Int     @default(0)
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  Answer[]
+
+  @@index([questionId])
+}
+
+model Package {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  durationMinutes Int      @default(60)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  packageCategories PackageCategory[]
+  pins              ParticipantPin[]
+  sessions          ExamSession[]
+}
+
+model PackageCategory {
+  id            String @id @default(cuid())
+  packageId     String
+  categoryId    String
+  questionCount Int
+
+  package  Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, categoryId])
+}
+
+model ParticipantPin {
+  id            String   @id @default(cuid())
+  pin           String
+  participantId String
+  packageId     String
+  used          Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  participant Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  package     Package      @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  session     ExamSession?
+
+  @@unique([packageId, pin])
+  @@index([participantId])
+}
+
+enum SessionStatus {
+  IN_PROGRESS
+  SUBMITTED
+  EXPIRED
+}
+
+model ExamSession {
+  id              String        @id @default(cuid())
+  participantId   String
+  packageId       String
+  pinId           String        @unique
+  startedAt       DateTime      @default(now())
+  durationMinutes Int
+  submittedAt     DateTime?
+  status          SessionStatus @default(IN_PROGRESS)
+  questionOrder   Json
+  totalScore      Int           @default(0)
+
+  participant Participant    @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  package     Package        @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  pin         ParticipantPin @relation(fields: [pinId], references: [id], onDelete: Cascade)
+  answers     Answer[]
+
+  @@index([participantId])
+}
+
+model Answer {
+  id         String   @id @default(cuid())
+  sessionId  String
+  questionId String
+  optionId   String?
+  score      Int      @default(0)
+  answeredAt DateTime @default(now())
+
+  session  ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  option   Option?     @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  @@unique([sessionId, questionId])
+}
