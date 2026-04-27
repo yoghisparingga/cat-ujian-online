@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 const optionSchema = z.object({
+  key: z.string().optional(),
   text: z.string().min(1),
   imageUrl: z.string().optional().nullable(),
   score: z.number().int().min(0).max(5),

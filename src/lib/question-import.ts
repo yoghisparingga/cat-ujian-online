@@ -1,6 +1,7 @@
 import { QuestionType } from "@prisma/client";
 
 export type ImportOptionDraft = {
+  key: string;
   text: string;
   imageUrl?: string;
   score: number;
@@ -82,6 +83,7 @@ function normalizeRow(row: RawRow, rowNumber: number): ImportQuestionDraft {
     questionImageUrl: stringValue(row.question_image_url) || undefined,
     questionType,
     options: OPTION_KEYS.map((key) => ({
+      key,
       text: stringValue(row[`option_${key}`]),
       imageUrl: stringValue(row[`option_${key}_image_url`]) || undefined,
       score: numberValue(row[`option_${key}_score`]),
@@ -102,12 +104,12 @@ function normalizeRow(row: RawRow, rowNumber: number): ImportQuestionDraft {
   if (draft.questionType === "MULTIPLE_CHOICE" && !draft.options.some((o) => o.isCorrect)) {
     draft.errors.push("SINGLE_CHOICE wajib memiliki minimal satu jawaban benar");
   }
-  for (const [idx, option] of draft.options.entries()) {
+  for (const option of draft.options) {
     if (!Number.isFinite(option.score)) {
-      draft.errors.push(`option_${OPTION_KEYS[idx]}_score harus numeric`);
+      draft.errors.push(`option_${option.key}_score harus numeric`);
     }
     if (draft.questionType === "LIKERT" && (option.score < 1 || option.score > 5)) {
-      draft.errors.push(`option_${OPTION_KEYS[idx]}_score LIKERT harus 1-5`);
+      draft.errors.push(`option_${option.key}_score LIKERT harus 1-5`);
     }
   }
   return draft;

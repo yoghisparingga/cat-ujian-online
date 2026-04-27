@@ -2,12 +2,14 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requestOtp } from "@/lib/otp";
-import { normalizeIndonesianPhoneNumber } from "@/lib/phone";
+import { isValidIndonesianPhoneNumber, normalizeIndonesianPhoneNumber } from "@/lib/phone";
 
 const schema = z.object({
   name: z.string().min(2).max(120),
   email: z.string().email().max(160).optional().or(z.literal("")),
-  phone: z.string().min(8).max(30),
+  phone: z.string().min(8).max(30).refine(isValidIndonesianPhoneNumber, {
+    message: "Nomor WhatsApp Indonesia tidak valid",
+  }),
 });
 
 export async function POST(req: NextRequest) {

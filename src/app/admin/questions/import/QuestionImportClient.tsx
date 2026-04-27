@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 type ImportOptionDraft = {
+  key?: string;
   text: string;
   imageUrl?: string;
   score: number;
